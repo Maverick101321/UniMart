@@ -1,27 +1,47 @@
 import { useState, useEffect } from "react";
 import { auth } from "./firebase";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
-import axios from "axios";
+import "./App.css";
 
 function App() {
+  const [quoteIndex, setQuoteIndex] = useState(0);
   const [user, setUser] = useState(null);
-  const [title, setTitle] = useState("");
-  const [price, setPrice] = useState("");
-  const [image, setImage] = useState(null);
-  const [error, setError] = useState("");
+  const [showPopup, setShowPopup] = useState(false);
+  const [showRoleSelection, setShowRoleSelection] = useState(false);
+
+  // Array of catchy quotes
+  const quotes = [
+    "Ditch WhatsApp chaos—sell and buy smarter with UniMart!",
+    "Skip the store trips—find campus deals at UniMart!",
+    "Stop wasting money on new—grab second-hand gems on UniMart!",
+    "Say goodbye to old ways—UniMart is your campus marketplace!",
+  ];
+
+  // Rotate quotes every 5 seconds instead of 3
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQuoteIndex((prevIndex) => (prevIndex + 1) % quotes.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
         if (user.email.endsWith("@srmist.edu.in")) {
           setUser(user);
-          setError("");
+          setShowPopup(false);
+          setShowRoleSelection(true);
         } else {
           auth.signOut();
-          setError("Please use an SRM email (@srmist.edu.in).");
+          setUser(null);
+          setShowPopup(true);
+          setShowRoleSelection(false);
+          setTimeout(() => setShowPopup(false), 5000); // Show popup for 5 seconds
         }
       } else {
         setUser(null);
+        setShowRoleSelection(false);
       }
     });
     return unsubscribe;
@@ -32,72 +52,60 @@ function App() {
     try {
       await signInWithPopup(auth, provider);
     } catch (error) {
-      setError("Login failed: " + error.message);
+      console.error("Login failed:", error.message);
     }
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onloadend = () => setImage(reader.result); // Converts to base64
-    reader.readAsDataURL(file);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!user) {
-      setError("Please log in first.");
-      return;
-    }
-    if (!image) {
-      setError("Please upload an image.");
-      return;
-    }
-    try {
-      await axios.post("http://localhost:3500/addListing", {
-        title,
-        price,
-        imageBase64: image,
-      });
-      setTitle("");
-      setPrice("");
-      setImage(null);
-      setError("Listing added!");
-    } catch (err) {
-      setError("Failed to add listing: " + err.message);
-    }
+  const handleRoleSelect = (selectedRole) => {
+    // Here you can add navigation to different sections based on role
+    console.log(`Selected role: ${selectedRole}`);
   };
 
   return (
-    <div style={{ textAlign: "center", padding: "50px" }}>
-      <h1>SRM Marketplace</h1>
-      {user ? (
-        <div>
-          <p>Welcome, {user.displayName}!</p>
-          <form onSubmit={handleSubmit}>
-            <input
-              type="text"
-              placeholder="Title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <input
-              type="number"
-              placeholder="Price"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-            />
-            <input type="file" accept="image/*" onChange={handleImageChange} />
-            <button type="submit">Add Listing</button>
-          </form>
-        </div>
-      ) : (
-        <div>
-          <button onClick={handleLogin}>Login with SRM Email</button>
-          {error && <p style={{ color: "red" }}>{error}</p>}
+    <div className="landing-page">
+      {showPopup && (
+        <div className="popup">
+          Please login with your SRM email (@srmist.edu.in) to continue
         </div>
       )}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      <header>
+        <h1>UniMart</h1>
+      </header>
+      <main>
+        <div className="quote-container">
+          <p className="quote">{quotes[quoteIndex]}</p>
+        </div>
+        {!user && (
+          <button onClick={handleLogin} className="login-btn">
+            Login with SRM Email
+          </button>
+        )}
+        {showRoleSelection && (
+          <div className="role-selection">
+            <h2>Welcome! What would you like to do?</h2>
+            <div className="role-options">
+              <button
+                className="role-btn"
+                onClick={() => handleRoleSelect("buyer")}
+              >
+                Buy Items
+              </button>
+              <button
+                className="role-btn"
+                onClick={() => handleRoleSelect("seller")}
+              >
+                Sell Items
+              </button>
+              <button
+                className="role-btn"
+                onClick={() => handleRoleSelect("browse")}
+              >
+                Browse Around
+              </button>
+            </div>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
